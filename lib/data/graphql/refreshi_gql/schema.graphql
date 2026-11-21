@@ -1,0 +1,39 @@
+enum OrderStatus{
+    CAPTURED
+    HOLD_PLACED
+}
+
+type ServiceItem {
+    id: ID!
+    name: String!
+    description: String!
+    price: Float!
+    durationMinutes: Int!
+}
+
+type Order {
+    id: ID!
+    idempotencyKey: String!
+    services: [ServiceItem!]
+    scheduledTime: String!
+    totalPrice: Float!
+    status: OrderStatus!
+    createdAt: String!
+    holdConfirmedAt: String!
+}
+
+input CreateOrderInput {
+    idempotencyKey: String!
+    serviceIds: [ID!]
+    scheduledTime: String!
+    cardToken: String!
+}
+
+type Query {
+    services: [ServiceItem!]
+    order(id: ID!): Order
+}
+
+type Mutation {
+    createOrder(input: CreateOrderInput!): Order!
+}

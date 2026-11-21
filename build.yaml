@@ -1,0 +1,8 @@
+targets:
+  $default:
+    builders:
+      graphql_codegen:
+        options:
+          clients: 
+          - graphql_flutter
+          assetsPath: lib/data/graphql/refreshi_gql/** 

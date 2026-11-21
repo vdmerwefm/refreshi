@@ -1,0 +1,48 @@
+query GetServices {
+    services {
+        id
+        name
+        description
+        price
+        durationMinutes
+    }
+}
+
+query GetOrder($id: ID!) {
+    order(id: $id) {
+        id
+        idempotencyKey
+        scheduledTime
+        totalPrice
+        status
+        createdAt
+        holdConfirmedAt
+        services {
+            id
+            name
+            description
+            price
+            durationMinutes
+        }
+
+    }
+}
+
+mutation CreateOrder($input: CreateOrderInput) {
+    createOrder(input: $input) {
+        id
+        idempotencyKey
+        scheduledTime
+        totalPrice
+        status
+        createdAt
+        holdConfirmedAt
+        services {
+            id
+            name
+            description
+            price
+            durationMinutes
+        }
+    }
+}
