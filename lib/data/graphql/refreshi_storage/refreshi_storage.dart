@@ -67,19 +67,50 @@ class RefreshiLocalStorage {
 
   List<Query$GetServices$services> getServices() => _getServicesList;
 
-  Query$GetOrder$order? getOrderById(String id) => _ordersById[id];
+  /// How long the simulated payment provider takes to confirm the hold.
+  static const holdConfirmationDelay = Duration(seconds: 3);
+
+  Query$GetOrder$order? getOrderById(String id) {
+    final order = _ordersById[id];
+    if (order == null) return null;
+    return _settleHoldIfDue(order);
+  }
+
+  /// The in-memory timer in [createOrder] is lost if the browser refreshes
+  /// before it fires. Deriving the confirmation from `createdAt` on read means
+  /// the hold still confirms after a refresh / deep link, and is idempotent.
+  Query$GetOrder$order _settleHoldIfDue(Query$GetOrder$order order) {
+    if (order.status != Enum$OrderStatus.CAPTURED) return order;
+    final createdAt = DateTime.tryParse(order.createdAt);
+    if (createdAt == null) return order;
+    final confirmAt = createdAt.add(holdConfirmationDelay);
+    if (DateTime.now().isBefore(confirmAt)) return order;
+
+    final settled = order.copyWith(
+      status: Enum$OrderStatus.HOLD_PLACED,
+      holdConfirmedAt: confirmAt.toIso8601String(),
+    );
+    _ordersById[order.id] = settled;
+    _saveToRefreshiStorage();
+    return settled;
+  }
 
   Future<Query$GetOrder$order> createOrder(Input$CreateOrderInput input) async {
     final _existingId = _orderIdByIdempotencyKey[input.idempotencyKey];
 
+    // Idempotency: a retried request (double click, refresh mid-submit)
+    // returns the original order instead of placing a second hold.
+    // NOTE: no `await` may happen between this check and the insert below,
+    // otherwise two concurrent requests with the same key could both pass.
     if (_existingId != null && _ordersById.containsKey(_existingId)) {
-      return _ordersById[_existingId]!;
+      return _settleHoldIfDue(_ordersById[_existingId]!);
     }
 
-    if (input.serviceIds != null) {
-      if (input.serviceIds!.isEmpty || input.serviceIds!.length < 2) {
-        throw ServiceValidationException();
-      }
+    // Brief: customer selects one or two services.
+    if (input.serviceIds == null ||
+        input.serviceIds!.isEmpty ||
+        input.serviceIds!.length > 2) {
+      throw ServiceValidationException();
     }
 
     if (input.cardToken.trim().isEmpty) {
@@ -104,7 +135,7 @@ class RefreshiLocalStorage {
 
     final _services = _getServices;
     final _totalPrice = _getServices.fold(0.0, (a, b) => a + b.price);
-    final _orderId = '_order_${DateTime.now().toIso8601String()}';
+    final _orderId = '_order_${DateTime.now().microsecondsSinceEpoch}';
     final _orderStatus = Enum$OrderStatus.CAPTURED;
     final _createdAt = DateTime.now().toIso8601String();
 
@@ -123,7 +154,7 @@ class RefreshiLocalStorage {
     _orderIdByIdempotencyKey[input.idempotencyKey] = _orderId;
     await _saveToRefreshiStorage();
 
-    Future.delayed(Duration(seconds: 3), () async {
+    Future.delayed(holdConfirmationDelay, () async {
       final current = _ordersById[_orderId];
 
       if (current != null && current.status == Enum$OrderStatus.CAPTURED) {

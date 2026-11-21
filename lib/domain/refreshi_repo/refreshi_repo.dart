@@ -11,7 +11,7 @@ import 'package:refreshi/data/i_refreshi_repo/i_refreshi_repo.dart';
 import 'package:refreshi/domain/refreshi_mappers/order_mapper.dart';
 import 'package:refreshi/domain/refreshi_mappers/services_mapper.dart';
 
-@injectable
+@Injectable(as: IRefreshiRepo)
 class RefreshiRepo implements IRefreshiRepo {
   RefreshiRepo(this._graphQLClient);
 

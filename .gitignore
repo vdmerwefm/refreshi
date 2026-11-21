@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Generated code: recreate with `dart run build_runner build`
+*.g.dart
+*.freezed.dart
+*.graphql.dart
+*.gr.dart
+lib/di/injection.config.dart
+
+# Native platform folders: recreate with `flutter create --platforms=ios,android .`
+/ios/
+/android/

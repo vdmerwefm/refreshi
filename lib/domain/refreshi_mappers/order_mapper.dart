@@ -11,6 +11,7 @@ class OrderMapper {
       totalPrice: rawOrder.totalPrice,
       status: rawOrder.status.name,
       createdAt: DateTime.tryParse(rawOrder.createdAt) ?? DateTime.now(),
+      holdConfirmedAt: DateTime.tryParse(rawOrder.holdConfirmedAt),
       services: ServicesMapper.orderServicesToServicesDto(rawOrder.services!)
     );
   }
@@ -23,6 +24,7 @@ class OrderMapper {
       totalPrice: rawOrder.totalPrice,
       status: rawOrder.status.name,
       createdAt: DateTime.tryParse(rawOrder.createdAt) ?? DateTime.now(),
+      holdConfirmedAt: DateTime.tryParse(rawOrder.holdConfirmedAt),
       services: ServicesMapper.createOrderServicesToServicesDto(rawOrder.services!)
     );
   }
