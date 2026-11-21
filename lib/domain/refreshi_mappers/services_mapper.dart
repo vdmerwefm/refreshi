@@ -1,5 +1,5 @@
 import 'package:refreshi/data/graphql/refreshi_gql/operations.graphql.dart';
-import 'package:refreshi/data/refreshi_models/refreshi_service_dto/refreshi_service_dto.dart';
+import 'package:refreshi/domain/refreshi_models/refreshi_service_dto/refreshi_service_dto.dart';
 
 class ServicesMapper {
   static List<RefreshiServiceDto> servicesToServicesDto(

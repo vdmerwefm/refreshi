@@ -5,15 +5,15 @@ import 'package:refreshi/core/error/refreshi_failure.dart';
 import 'package:refreshi/data/enums/refreshi_gql_link_enums.dart';
 import 'package:refreshi/data/graphql/refreshi_gql/operations.graphql.dart';
 import 'package:refreshi/data/graphql/refreshi_gql/schema.graphql.dart';
-import 'package:refreshi/data/refreshi_models/refreshi_order_dto/refreshi_order_dto.dart';
-import 'package:refreshi/data/refreshi_models/refreshi_service_dto/refreshi_service_dto.dart';
-import 'package:refreshi/data/refreshi_repo/i_refreshi_repo.dart';
-import 'package:refreshi/domain/refrshi_mappers/order_mapper.dart';
-import 'package:refreshi/domain/refrshi_mappers/services_mapper.dart';
+import 'package:refreshi/domain/refreshi_models/refreshi_order_dto/refreshi_order_dto.dart';
+import 'package:refreshi/domain/refreshi_models/refreshi_service_dto/refreshi_service_dto.dart';
+import 'package:refreshi/data/i_refreshi_repo/i_refreshi_repo.dart';
+import 'package:refreshi/domain/refreshi_mappers/order_mapper.dart';
+import 'package:refreshi/domain/refreshi_mappers/services_mapper.dart';
 
-@LazySingleton(as: IRefreshiRepo)
-class RefreahiRepo implements IRefreshiRepo {
-  RefreahiRepo(this._graphQLClient);
+@injectable
+class RefreshiRepo implements IRefreshiRepo {
+  RefreshiRepo(this._graphQLClient);
 
   final GraphQLClient _graphQLClient;
 
@@ -25,6 +25,10 @@ class RefreahiRepo implements IRefreshiRepo {
           operationName: RefreshiGqlLinkEnums.getServices.name,
         ),
       );
+
+      if (rawdata.hasException) {
+        throw MapServicesException();
+      }
       if (rawdata.parsedData != null && rawdata.parsedData?.services != null) {
         return ServicesMapper.servicesToServicesDto(
           rawdata.parsedData!.services!,
@@ -45,6 +49,10 @@ class RefreahiRepo implements IRefreshiRepo {
           fetchPolicy: FetchPolicy.networkOnly,
         ),
       );
+
+      if (rawData.hasException) {
+        throw MapOrderException();
+      }
 
       if (rawData.parsedData != null && rawData.parsedData?.order != null) {
         return OrderMapper.orderToOrderDto(rawData.parsedData!.order!);
@@ -75,6 +83,10 @@ class RefreahiRepo implements IRefreshiRepo {
           ),
         ),
       );
+
+      if (rawData.hasException) {
+        throw MapCreateOrderException();
+      }
 
       if (rawData.parsedData != null &&
           rawData.parsedData?.createOrder != null) {

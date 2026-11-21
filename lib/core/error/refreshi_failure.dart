@@ -13,7 +13,7 @@ class RefreshiFailure {
 
   factory RefreshiFailure.mapServicesException() => MapServicesException();
 
-  factory RefreshiFailure.fromJosn(Map<String, dynamic> json) =>
+  factory RefreshiFailure.fromJson(Map<String, dynamic> json) =>
       RefreshiFailure(json['message'] as String);
 
   Map<String, dynamic> toJson() => {'message': message};

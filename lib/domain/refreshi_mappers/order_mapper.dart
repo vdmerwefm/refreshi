@@ -1,6 +1,6 @@
 import 'package:refreshi/data/graphql/refreshi_gql/operations.graphql.dart';
-import 'package:refreshi/data/refreshi_models/refreshi_order_dto/refreshi_order_dto.dart';
-import 'package:refreshi/domain/refrshi_mappers/services_mapper.dart';
+import 'package:refreshi/domain/refreshi_models/refreshi_order_dto/refreshi_order_dto.dart';
+import 'package:refreshi/domain/refreshi_mappers/services_mapper.dart';
 
 class OrderMapper {
   static RefreshiOrderDto orderToOrderDto(Query$GetOrder$order rawOrder) {
