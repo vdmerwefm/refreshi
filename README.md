@@ -42,8 +42,24 @@ melos setup
 melos web
 ```
 
-To run on a phone use `flutter run`. On a physical iPhone use
-`flutter run --release`, debug builds only work while attached to the debugger.
+**5. Run on a simulator or emulator (optional)**
+
+Start a device first:
+
+```bash
+open -a Simulator             # iOS Simulator
+flutter emulators --launch <id>   # Android emulator, `flutter emulators` lists the ids
+```
+
+Then in VS Code pick the device in the status bar (bottom right), open the
+**Run and Debug** tab and launch:
+
+- **refreshi (simulator / emulator)** for the iOS Simulator or Android emulator
+- **refreshi (physical device)** for a real phone. It runs in release mode, an
+  iPhone won't open a debug build once the debugger disconnects.
+
+From the terminal it's `flutter run` (simulator / emulator) or
+`flutter run --release` (physical device).
 
 **Demo sign in:** `admin` / `admin` (pre-filled).
 
