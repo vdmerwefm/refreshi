@@ -39,8 +39,11 @@ class AppRouter {
       ),
       GoRoute(
         path: '/orders/:orderId',
-        builder: (context, state) =>
-            OrderDetailsPage(orderId: state.pathParameters['orderId']!),
+        builder: (context, state) => OrderDetailsPage(
+          //new id, new page and a fresh bloc
+          key: ValueKey(state.pathParameters['orderId']),
+          orderId: state.pathParameters['orderId']!,
+        ),
       ),
     ],
   );

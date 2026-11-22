@@ -7,7 +7,7 @@ import 'package:refreshi/data/graphql/refreshi_gql/operations.graphql.dart';
 import 'package:refreshi/data/graphql/refreshi_gql/schema.graphql.dart';
 import 'package:refreshi/domain/refreshi_models/refreshi_order_dto/refreshi_order_dto.dart';
 import 'package:refreshi/domain/refreshi_models/refreshi_service_dto/refreshi_service_dto.dart';
-import 'package:refreshi/data/i_refreshi_repo/i_refreshi_repo.dart';
+import 'package:refreshi/domain/refreshi_repo/i_repo/i_refreshi_repo.dart';
 import 'package:refreshi/domain/refreshi_mappers/order_mapper.dart';
 import 'package:refreshi/domain/refreshi_mappers/services_mapper.dart';
 
@@ -41,25 +41,30 @@ class RefreshiRepo implements IRefreshiRepo {
 
   @override
   TaskEither<RefreshiFailure, RefreshiOrderDto> getOrder({required String id}) {
-    return TaskEither.tryCatch(() async {
-      final rawData = await _graphQLClient.query$GetOrder(
-        Options$Query$GetOrder(
-          operationName: RefreshiGqlLinkEnums.getOrder.name,
-          variables: Variables$Query$GetOrder(id: id),
-          fetchPolicy: FetchPolicy.networkOnly,
-        ),
-      );
+    return TaskEither.tryCatch(
+      () async {
+        final rawData = await _graphQLClient.query$GetOrder(
+          Options$Query$GetOrder(
+            operationName: RefreshiGqlLinkEnums.getOrder.name,
+            variables: Variables$Query$GetOrder(id: id),
+            fetchPolicy: FetchPolicy.networkOnly,
+          ),
+        );
 
-      if (rawData.hasException) {
-        throw MapOrderException();
-      }
+        if (rawData.hasException) {
+          throw MapOrderException();
+        }
 
-      if (rawData.parsedData != null && rawData.parsedData?.order != null) {
-        return OrderMapper.orderToOrderDto(rawData.parsedData!.order!);
-      } else {
-        return RefreshiOrderDto.empty();
-      }
-    }, (error, stacktrace) => MapOrderException());
+        final order = rawData.parsedData?.order;
+        if (order == null) {
+          throw const OrderNotFoundException();
+        }
+        return OrderMapper.orderToOrderDto(order);
+      },
+      //keep typed failures, anything else is a mapping problem
+      (error, stacktrace) =>
+          error is RefreshiFailure ? error : MapOrderException(),
+    );
   }
 
   @override

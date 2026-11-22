@@ -9,18 +9,11 @@ sealed class RefreshiState with _$RefreshiState {
     List<String>? selectedServices,
     //display only, the order uses the total the data source calculates
     @Default(0) double orderTotal,
-    RefreshiOrderDto? refreshiOrder,
-    @Default(false) isEnabled,
-    String? status,
     //scheduledTime is always one of these or null
     @Default(<DateTime>[]) List<DateTime> scheduleSlots,
     String? scheduledTime,
     String? idempotencyKey,
     String? createdOrderId,
   }) = _RefreshiState;
-
-  factory RefreshiState.fromJson(Map<String, dynamic> json) =>
-      _$RefreshiStateFromJson(json);
-
   factory RefreshiState.empty() => const RefreshiState();
 }

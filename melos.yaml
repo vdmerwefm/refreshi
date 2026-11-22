@@ -1,0 +1,44 @@
+name: refreshi
+
+useRootAsPackage: true
+
+packages:
+  - .
+
+scripts:
+  #one command from a fresh clone: deps, generated code and the native folders
+  setup:
+    run: melos run get && melos run build && melos run platforms
+    description: Install deps, generate code and create the ios/android folders
+
+  get:
+    run: flutter pub get
+    description: Install dependencies
+
+  build:
+    run: dart run build_runner build
+    description: Generate GraphQL types, freezed, json and injectable code
+
+  auto-build:
+    run: dart run build_runner watch
+    description: Regenerate code on save
+
+  platforms:
+    run: flutter create --platforms=ios,android --empty .
+    description: Create the ios and android folders (not committed)
+
+  analyze:
+    run: flutter analyze lib test
+    description: Analyze the app and tests
+
+  test:
+    run: flutter test
+    description: Run all tests
+
+  web:
+    run: flutter run -d chrome
+    description: Run the app in Chrome
+
+  clean:
+    run: flutter clean && find lib -type f \( -name '*.g.dart' -o -name '*.freezed.dart' -o -name '*.graphql.dart' -o -name '*.config.dart' \) -delete
+    description: Remove build output and generated code

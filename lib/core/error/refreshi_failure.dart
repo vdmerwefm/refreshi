@@ -14,6 +14,8 @@ class RefreshiFailure {
 
   factory RefreshiFailure.mapServicesException() => MapServicesException();
 
+  factory RefreshiFailure.orderNotFoundException() => OrderNotFoundException();
+
   factory RefreshiFailure.fromJson(Map<String, dynamic> json) =>
       RefreshiFailure(json['message'] as String);
 
@@ -44,6 +46,10 @@ class MapServicesException extends RefreshiFailure {
   const MapServicesException([
     super.message = 'failed to map local services to ServicesDTO',
   ]);
+}
+
+class OrderNotFoundException extends RefreshiFailure {
+  const OrderNotFoundException([super.message = 'order not found']);
 }
 
 class InvalidLocalStorageException extends RefreshiFailure {

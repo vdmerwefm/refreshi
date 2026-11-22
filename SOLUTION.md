@@ -6,7 +6,9 @@
 UI (pages/widgets)
    │  events / state   (flutter_bloc)
    ▼
-RefreshiBloc, AuthBloc            presentation
+RefreshiBloc (checkout)           presentation
+RefreshiOrderBloc (order page)
+AuthBloc
    │
 RefreshiUseCases                  domain    (returns Either<RefreshiFailure, T>)
    │
@@ -19,186 +21,208 @@ RefreshiGqlLink                   resolves operations in-app instead of over HTT
 RefreshiLocalStorage              source of truth, persisted in SharedPreferences
 ```
 
-- **UI vs. application state.** Widgets only dispatch events and render state.
-  Selection rules, idempotency keys, polling and validation all live in the bloc
-  or below it.
-- **Dependencies.** I used get_it with injectable, as in my existing
-  `pokemon_base` app. Everything is constructor-injected. The repository is
-  registered against `IRefreshiRepo`, so a real HTTP-backed implementation, or a
-  fake in tests, can replace it without touching the bloc or the UI. App-wide
-  blocs are provided once in `AppProviders`, with the same pattern as Pokémon.
-- **Typed GraphQL.** `schema.graphql` and `operations.graphql` live in the repo.
-  `graphql_codegen` generates the request, response and variable classes and the
-  typed client extensions (`query$GetOrder`, `mutate$CreateOrder`). The repo
-  maps generated types into domain DTOs, so the app code never touches
-  `Map<String, dynamic>`.
-- **No backend.** `RefreshiGqlLink` is a `Link` (the same extension point a
-  real `HttpLink` uses). It switches on the operation name and answers from
-  `RefreshiLocalStorage`. To move to a real server, swap the link: everything
-  above it stays the same.
+- **UI and state.** Widgets dispatch events and render state, that's it.
+  Anything that needs to be calculated sits in the bloc: selection rules, the
+  order total, bookable time slots, idempotency keys and polling. The total and
+  the schedule slots started out in the widgets and I moved them into
+  `RefreshiBloc`, so the widgets now just read `state.orderTotal` and
+  `state.scheduleSlots`.
+- **Dependencies.** get_it with injectable. Everything
+  is constructor injected and the repo is registered against `IRefreshiRepo`, so
+  swapping in a real backend, or a fake for tests, doesn't touch the bloc or the
+  UI. App wide blocs get provided once in `AppProviders`.
+- **Typed GraphQL.** Schema and operations live in the repo and
+  `graphql_codegen` generates everything from them, including the typed client
+  calls (`query$GetOrder`, `mutate$CreateOrder`). The repo maps the generated
+  types into domain DTOs, so app code never deals with `Map<String, dynamic>`.
+  Generated files aren't committed (see
+  README).
+- **No backend.** `RefreshiGqlLink` is just a `Link`, the same spot a real
+  `HttpLink` would sit. It switches on the operation name and answers from
+  `RefreshiLocalStorage`. Moving to a real server means swapping the link,
+  having an actual end point would allow us to facilitate modeling a raw model and likely using dio-linking. 
+- **UI structure.** Pages are kept thin. Their widgets sit in `part` files
+  under `widgets/<feature>/`. Shared bits are
+  `RefreshiButton`, `RefreshiFormatters` for money and dates, and
+  `RefreshiScheduleHelper` for the slot logic.
 
 ## Navigation (go_router)
 
-Routes: `/` (checkout), `/sign-in`, and `/orders/:orderId`.
+Routes: `/` (checkout), `/sign-in` and `/orders/:orderId`.
 
-- **The URL is the source of truth.** The order details page receives only
-  `orderId` from the path and fetches the order itself. A deep link, a refresh
-  or a new tab therefore renders the same screen. Nothing depends on in-memory
-  navigation arguments.
-- **What needs sign-in.** Browsing the catalog and building a checkout is
-  public. Order routes (`/orders/...`) are protected, as the brief asks. Placing
-  the hold also requires sign-in: pressing Confirm while signed out goes to
-  `/sign-in?from=/`, and the user returns to checkout with their selection kept.
-- **Auth redirect.** A single top-level `redirect` checks `AuthBloc` and sends a
-  signed-out user who opens an order route to
-  `/sign-in?from=<original location>`. Once they sign in, the
-  same redirect sends them to `from`. Because `from` is stored in the URL rather
-  than in memory, the return trip still works if the sign-in page itself is
-  refreshed. `from` must be an in-app path, which prevents open redirects. The
-  router listens to the auth bloc's stream (`refreshListenable`), so signing in
-  or out re-evaluates the current route straight away.
-- **Path URLs** (`usePathUrlStrategy`) give `/orders/123` instead of
+- **URL is the source of truth.** The order page only gets `orderId` from the
+  path and fetches the order itself, so a deep link, a refresh or a new tab all
+  land on the same screen. Nothing relies on in-memory navigation args.
+- **What needs sign in.** Browsing and building a checkout is public. Order
+  routes are protected like the brief asks, and placing the hold needs sign in
+  too: hitting Confirm while signed out goes to `/sign-in?from=/` and brings you
+  back to checkout with your selection still there. Signing out resets the
+  checkout.
+- **Auth redirect.** One top level `redirect` checks `AuthBloc`. Signed out on
+  an order route sends you to `/sign-in?from=<where you were going>`, and once
+  you sign in the same redirect sends you back to `from`. Keeping `from` in the
+  URL instead of memory means it still works if the sign in page gets
+  refreshed. `from` has to be an in-app path, so it can't be used as an open
+  redirect. The router listens to the auth bloc's stream (`refreshListenable`),
+  so signing in or out re-evaluates the route straight away.
+- **Path URLs.** `usePathUrlStrategy` gives `/orders/123` instead of
   `/#/orders/123`.
-- **Why not auto_route, which my Pokémon app uses?** I tried it first. With
-  Flutter 3.35 and this project's codegen stack (freezed 3, injectable 3,
-  json_serializable 6.9+) there was no auto_route version that resolved.
-  auto_route 11 needs a newer Flutter, and the older auto_route_generator needs
-  an older analyzer and source_gen. go_router needs no code generation, so it
-  avoids the conflict. Its URL-based redirect also suits the deep-link
-  requirement well.
+- **Why not auto_route.** I tried it first since it's what I normally use. On
+  Flutter 3.35 with this codegen stack (freezed 3, injectable 3,
+  json_serializable 6.9+) no version resolved: auto_route 11 needs a newer
+  Flutter and the older generator needs an older analyzer. go_router has no
+  codegen so the conflict goes away, and its URL based redirect fits the deep
+  link requirement anyway.
 
 ## Repeated actions and refresh (no duplicate holds)
 
-Defence in depth: each layer would be enough for most cases on its own, and
-together they cover the edge cases.
+A few layers that each stop most of it on their own, together they cover the
+edge cases.
 
-1. **The UI disables Confirm** while a submission is in flight and shows a
-   spinner.
-2. **The bloc drops repeats.** `CreateRefreshiOrder` uses bloc_concurrency's
-   `droppable()` transformer, and the handler also returns early if `isLoading`.
-   Repeated clicks, Enter-key repeats, or any other caller dispatching twice
-   produce one request.
-3. **Idempotency key per purchase intent.** The key is generated when the draft
-   is created and replaced only when the cart or the time slot changes. A
-   different cart is a different purchase. It is not generated per click: the
-   old code made a fresh UUID per click, which defeats the purpose.
-4. **The draft survives a refresh.** `RefreshiBloc` is a `HydratedBloc` that
-   persists only the draft: selected services, slot and idempotency key.
-   Services and orders are never cached there; they are always re-fetched. If
-   the page is refreshed mid-submit and the user confirms again, the same key is
-   sent.
-5. **The data source dedupes.** `createOrder` looks up the idempotency key
-   (persisted alongside the orders) and returns the existing order instead of
-   creating a new one. No `await` happens between that check and the insert, so
-   two concurrent requests with the same key can't both pass.
-6. **Navigation replaces the history entry.** After success the app calls
-   `context.go('/orders/<id>')`, which replaces the history entry rather than
-   pushing one, and resets the draft. Back or refresh on the details page is
-   only ever a read. A new booking starts with a new key.
+1. **Confirm disables itself.** It greys out and shows a spinner while an order
+   is being placed.
+2. **The bloc drops repeats.** `CreateRefreshiOrder` uses `droppable()` from
+   bloc_concurrency and the handler also bails out if `isLoading`, so no matter
+   how many times it gets dispatched only one request goes out.
+3. **Idempotency key per cart, not per click.** The key gets created with the
+   draft and only changes when the services or the time slot change, since a
+   different cart is a different purchase. My first version made a new UUID on
+   every click, which made the whole thing pointless.
+4. **The draft survives a refresh.** `RefreshiBloc` is a `HydratedBloc` but only
+   persists the draft: selected services, time slot and the key. Services and
+   orders always come from GraphQL. Refresh mid-submit, hit Confirm again and the
+   same key gets sent.
+5. **The data source dedupes.** `createOrder` looks up the key (persisted with
+   the orders) and hands back the existing order instead of making a new one.
+   There's no `await` between that check and the insert, so two requests with
+   the same key can't both get through.
+6. **Navigation replaces history.** After success it's `context.go` to
+   `/orders/<id>`, which replaces checkout instead of pushing on top of it, and
+   the draft resets. Back or refresh on the order page is only ever a read, and
+   the next booking starts with a fresh key.
 
-Covered by `test/presentation/refreshi_bloc_test.dart`: three rapid confirms,
-then a second bloc instance hydrated from the same storage (a simulated refresh)
-confirming again. The test asserts one order ID and one persisted order.
+`test/presentation/refreshi_bloc_test.dart` covers it: three quick confirms,
+then a second bloc hydrated from the same storage (a simulated refresh)
+confirming again. It checks there's one order ID and one stored order.
 
-**Trade-offs and limits.**
-- The key lives in the browser. If storage is cleared, or the user switches
-  device mid-submit, a retry gets a new key. A real backend would also dedupe on
-  something like `(customer, cart hash, slot)` within a short time window.
-- Reusing a key with a *different* payload silently returns the original order.
-  Stripe-style APIs reject that with an error instead. I left this out to keep
-  the scope small.
-- Two browser tabs share storage. Each tab's bloc has its own in-memory copy of
-  the draft, so a conflict is theoretically possible. The dedupe at the data
-  source still prevents a double hold for the same key.
+**Trade-offs.**
+- The key lives in the browser. Clear storage or switch device mid-submit and a
+  retry gets a new key. A real backend would also dedupe on something like
+  customer + cart + slot inside a short window.
+- Reusing a key with a different payload just returns the original order.
+  Stripe style APIs reject that with an error, I left it out to keep scope small.
+- Two tabs share storage but each has its own bloc, so the drafts can drift.
+  The dedupe at the data source still stops a double hold for the same key.
 
 ## Asynchronous hold confirmation
 
-An order is created with status `CAPTURED` (shown as "Hold pending") and moves
-to `HOLD_PLACED` after a simulated 3s provider delay.
+An order gets created as `CAPTURED` (shown as "Hold pending") and moves to
+`HOLD_PLACED` after a fake 3 second delay from the payment provider. On the
+order page the "Hold placed" tile shows a spinner and goes green once it's
+confirmed. `CAPTURED` really means hold pending here and should be renamed in
+the schema, I left it to avoid churning the generated types.
 
-- **Data source.** A timer was enough in memory, but it is lost if the browser
-  refreshes within those 3 seconds, and the order would then stay pending
-  forever. So `getOrderById` also derives the confirmation from
-  `createdAt + 3s` when it reads an order. This is idempotent, persists the
-  settled state, and needs no timer.
-- **Client.** `GetRefreshiOrder` polls `GetOrder` (with `networkOnly`) once a
-  second while the hold is pending and stops once it is placed. The bloc
-  remembers which order it is polling, so opening another order stops the
-  previous loop, and polling also stops when the bloc closes. In production I'd use a GraphQL
-  subscription or a push channel. Polling stays inside the bloc, so switching
-  would not affect the UI.
+- **Data source.** A timer works in memory, but it dies if the browser
+  refreshes inside those 3 seconds and the order would sit on pending forever.
+  So `getOrderById` also settles the hold from `createdAt + 3s` whenever it
+  reads an order. No timer needed, it's safe to run more than once, and it
+  saves the settled state.
+- **Client.** The order page has its own `RefreshiOrderBloc`, created with the
+  page and keyed on the order ID. It polls `GetOrder` (`networkOnly`) once a
+  second while the hold is pending and stops once it's placed. Leaving the page
+  closes the bloc, which stops the polling, so there's nothing to clean up by
+  hand. With a real backend this would be a GraphQL subscription or a push
+  channel. Polling is contained in the bloc, so swapping it out wouldn't touch
+  the UI.
 
-## Web UX notes
+## UI and web UX
 
-- The checkout uses a responsive two-column layout at 900px and wider: the
-  catalog and schedule on the left and a summary card beside it. Below 900px
-  everything is in a single column.
-- Content is width-capped for large monitors. The sign-in form supports
-  autofill hints and submits on Enter.
-- An unknown route or order ID shows a "not found" page with a way back.
+- **Look.** Went with a brutalist style: square boxes, a solid black border and
+  a hard black shadow with no blur. Selection is shown by colour, the box goes
+  teal, rather than checkboxes or ticks, and taps have no ink splash. Every
+  button is the same `RefreshiButton`, so the borders line up everywhere.
+- **Theme.** Colours are set directly in the theme instead of generated per
+  device. Text and dividers are black so they pop.
+- **Layout.** Checkout goes two columns at 900px and wider, catalog and
+  schedule on the left and the summary beside it, single column below that.
+  Content is width capped so it doesn't stretch on big monitors.
+- **Sign out.** On web it sits in the app bar. On mobile it's a button under
+  the order summary, and tapping it scrolls back to the top and resets the
+  checkout so the page doesn't just jump.
+- **Sign in** supports autofill and submits on Enter. Wrong details show an
+  error under the password box.
+- **Not found.** An unknown route or order ID shows a not found page with a way
+  back to checkout.
 
 ## Optional item: tests
 
-I chose **tests** over a web performance tweak, because the brief's riskiest
-requirement (no duplicate financial outcomes) is behaviour that can't be checked
-by looking at the app.
+Went with tests over a web performance tweak. The riskiest part of the brief is
+not charging someone twice, and you can't really prove that by clicking around
+the app.
 
-- `refreshi_bloc_test.dart` covers double-clicks and a refresh mid-submit. It
-  also checks that changing the cart rotates the key and that there is a
-  maximum of two services.
-- `widget_test.dart` covers a signed-out deep link: it goes to sign-in and then
-  back to the exact link.
-- `refreshi_repo_test.dart` runs create and fetch through the typed client.
-
-## What I'd do next
-
-- Move the checkout draft into the URL query (`?services=001,002&slot=…`) so a
-  checkout can be shared.
-- Reject idempotency-key reuse with a different payload.
-- Use a GraphQL subscription for hold status.
-- Split `RefreshiBloc` into checkout and order-details blocs as the app grows.
-- Defer-load the order page and run a `--wasm` build for web start-up time.
+- `refreshi_bloc_test.dart` hits Confirm three times quickly, then simulates a
+  refresh mid-submit and confirms again, and checks there's still only one
+  order. It also checks that changing the cart gives a new key and that you
+  can't pick more than two services.
+- `refreshi_order_bloc_test.dart` places an order, checks it starts as pending,
+  then waits for it to flip to placed once the hold confirms. It also checks an
+  unknown order ID comes back as `OrderNotFoundException`.
+- `refreshi_repo_test.dart` creates an order and fetches it back through the
+  typed GraphQL client, so the whole data layer gets exercised end to end.
 
 ## AI usage
 
-> ✏️ **Malan: review this section and make it your own before submitting.
-> It has to be accurate about how *you* worked.**
-
-**Tools:** Claude Code (Anthropic), used in VS Code.
+**Tool:** Claude Code (Anthropic), in VS Code.
 
 **Where it was used**
-- *Implementation and planning, days 1–3 (me):* [describe your own use here, if
-  any: e.g. schema design, the custom Link, repo/mappers, blocs].
-- *Finishing, final session (Claude Code):* the go_router setup and auth
-  redirect, the checkout and order-details UI, the bloc fixes (selection,
-  idempotency key handling, polling), the timer-free hold settlement, the tests,
-  and drafts of the README and SOLUTION.
+- **Days 1 to 3, me.** I built the data side myself: the GraphQL schema and
+  operations, the codegen setup, the custom `Link` that resolves operations
+  in-app, the local store with the idempotency dedupe, the repo, use cases,
+  mappers and DI, and the first versions of both blocs.
+- **Last session, Claude Code.** I used it to finish the slice: the routing and
+  auth redirect, a first pass of the pages, fixes in the bloc and the data
+  source, the tests, and first drafts of the README and this doc.
 
-**Accepted:**
-- The diagnosis that the idempotency key was regenerated on every confirm click
-  (`Uuid().v4()` inside the event handler), so the dedupe at the data source
-  never triggered on a double-click. I accepted moving the key into the
-  persisted checkout draft.
-- Deriving hold confirmation from `createdAt` on read, so a refresh during the
-  3-second delay doesn't leave the order pending forever.
+**Accepted**
+- It spotted that my confirm handler made a new UUID on every click, so the
+  dedupe in the data source never kicked in on a double click. I kept the fix:
+  one key per cart, persisted with the draft.
+- Settling the hold from `createdAt` when an order is read, instead of only on
+  a timer, so a refresh during the 3 seconds doesn't leave it pending forever.
 
-**Rejected:**
-- The AI's first pass started restructuring the project: moving the repo
-  interface and implementation between `data/` and `domain/`, deleting
-  `RefreshiBloc` to replace it with two new blocs, and changing the schema
-  enums. I rejected all of it and reverted. I wanted the slice finished on top
-  of my existing architecture rather than redesigned. Splitting the bloc is now
-  listed under "What I'd do next".
+**Rejected**
+- Its first move was to restructure my project: moving the repo interface and
+  implementation between `data/` and `domain/`, deleting `RefreshiBloc` for two
+  new blocs and changing the schema enums. I stopped it and reverted all of it.
+  I wanted the slice finished on top of my architecture, not redesigned.
 
-**Changed:**
-- [add one of your own, e.g. a widget or naming change you made to its output].
+**Changed**
+- **Persistence.** I pulled persistence back to just the login, then put the
+  checkout draft back once it was clear the brief's refresh mid-checkout case
+  needs it.
+- **Router.** I wanted auto_route since it's what I normally use. It wouldn't
+  resolve with this codegen stack on Flutter 3.35, so I went with go_router.
+- **UI.** Its pages were generic Material. I redid them in my own brutalist
+  style: square boxes with hard shadows, selection by colour instead of ticks,
+  one shared `RefreshiButton`, fixed theme colours. Sign in only kicks in when
+  you place the hold, and sign out sits under the summary on mobile.
+- **Where logic lives.** The order total and the schedule slots were being
+  worked out in widgets. I moved both into the bloc and pulled the slot logic
+  into `RefreshiScheduleHelper`.
+- **Splitting the bloc.** I'd started with one bloc for checkout and order
+  details to move fast. I split order details out into `RefreshiOrderBloc`,
+  scoped to the order page, so checkout and the order page each own their own
+  state and polling dies with the page.
+- **Errors.** Swapped the empty order the repo used to return for a typed
+  `OrderNotFoundException`, and cleared out state fields nothing was using.
+- **Structure and comments.** I split the pages into `part` widget files,
+  untracked generated code and the native folders, and rewrote the comments the
+  way I write them.
 
-**How I verified it**
-- `flutter analyze` and `flutter test` pass (the tests above).
-- Manual run in Chrome:
-  - a double-click on Confirm;
-  - a refresh during the pending state;
-  - a deep link to `/orders/<id>` while signed out, then signing in;
-  - Back after an order;
-  - an unknown order ID.
-- I read every diff to my own files before accepting it.
+**How I checked it**
+- `flutter analyze` is clean and the bloc and repo tests pass.
+- Ran it in Chrome and went through: double clicking Confirm, refreshing while
+  the hold is pending, opening an order link signed out and signing in, going
+  back after an order, and an unknown order ID.
+- Went through its changes to my code before keeping them, and reverted what I
+  didn't want.

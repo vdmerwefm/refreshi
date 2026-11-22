@@ -5,8 +5,7 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:refreshi/di/injection.dart';
 import 'package:refreshi/presentation/refreshi_bloc/refreshi_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../helpers/in_memory_storage.dart';
+import '../helpers/mock_in_memory_storage.dart';
 
 /// Number of orders persisted by the local GraphQL data source.
 Future<int> persistedOrderCount() async {
@@ -20,7 +19,7 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    HydratedBloc.storage = InMemoryStorage();
+    HydratedBloc.storage = MockInMemoryStorage();
     await configureDependencies();
   });
 

@@ -43,6 +43,7 @@ dev_dependencies:
   graphql_codegen: ^3.0.2
   injectable_generator: ^3.0.2
   json_serializable: ^6.9.0
+  melos: ^6.3.3
 
 flutter:
   uses-material-design: true

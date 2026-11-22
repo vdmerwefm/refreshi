@@ -1,6 +1,6 @@
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 
-class InMemoryStorage implements Storage {
+class MockInMemoryStorage implements Storage {
   final Map<String, dynamic> _data = {};
 
   @override

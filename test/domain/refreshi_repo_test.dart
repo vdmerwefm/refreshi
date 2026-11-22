@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:refreshi/data/i_refreshi_repo/i_refreshi_repo.dart';
+import 'package:refreshi/domain/refreshi_repo/i_repo/i_refreshi_repo.dart';
 import 'package:refreshi/di/injection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

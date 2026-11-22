@@ -2,8 +2,8 @@ import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
+import 'package:refreshi/core/constants/refreshi_constants.dart';
 import 'package:refreshi/core/error/refreshi_failure.dart';
-import 'package:refreshi/domain/refreshi_models/refreshi_order_dto/refreshi_order_dto.dart';
 import 'package:refreshi/domain/refreshi_models/refreshi_service_dto/refreshi_service_dto.dart';
 import 'package:refreshi/domain/refreshi_use_cases/refreshi_use_cases.dart';
 import 'package:refreshi/presentation/helpers/refreshi_schedule_helper.dart';
@@ -12,15 +12,6 @@ import 'package:uuid/uuid.dart';
 part 'refreshi_event.dart';
 part 'refreshi_state.dart';
 part 'refreshi_bloc.freezed.dart';
-part 'refreshi_bloc.g.dart';
-
-//CAPTURED really means hold pending here, should be renamed in the schema
-const refreshiHoldPendingStatus = 'CAPTURED';
-const refreshiHoldPlacedStatus = 'HOLD_PLACED';
-//saved card is hardcoded, the schema has no cards query yet
-const refreshiSavedCardToken = 'tok_saved_visa_4242';
-const refreshiSavedCardLabel = 'Visa •••• 4242';
-const refreshiMaxServices = 2;
 
 @injectable
 class RefreshiBloc extends HydratedBloc<RefreshiEvent, RefreshiState> {
@@ -45,47 +36,6 @@ class RefreshiBloc extends HydratedBloc<RefreshiEvent, RefreshiState> {
           );
         },
       );
-    });
-
-    on<GetRefreshiOrder>((event, emit) async {
-      //only the latest order gets polled, older loops stop themselves
-      _polledOrderId = event.id;
-      bool isCurrent() => !emit.isDone && _polledOrderId == event.id;
-
-      emit(
-        state.copyWith(
-          isLoading: true,
-          failure: null,
-          refreshiOrder: state.refreshiOrder?.id == event.id
-              ? state.refreshiOrder
-              : null,
-        ),
-      );
-
-      //hold confirms after the order is created, would be a subscription with a real backend
-      while (isCurrent()) {
-        final response = await _useCase.refreshiGetOrderUseCase(event.id);
-        if (!isCurrent()) return;
-
-        final keepPolling = response.fold(
-          (failure) {
-            emit(state.copyWith(isLoading: false, failure: failure));
-            return false;
-          },
-          (order) {
-            emit(
-              state.copyWith(
-                isLoading: false,
-                refreshiOrder: order,
-                status: order.status,
-              ),
-            );
-            return order.status == refreshiHoldPendingStatus;
-          },
-        );
-        if (!keepPolling) return;
-        await Future<void>.delayed(pollInterval);
-      }
     });
 
     on<AddServiceToOrderList>((event, emit) {
@@ -162,12 +112,7 @@ class RefreshiBloc extends HydratedBloc<RefreshiEvent, RefreshiState> {
         },
         (createOrder) {
           emit(
-            state.copyWith(
-              isLoading: false,
-              status: createOrder.status,
-              refreshiOrder: createOrder,
-              createdOrderId: createOrder.id,
-            ),
+            state.copyWith(isLoading: false, createdOrderId: createOrder.id),
           );
         },
       );
@@ -190,10 +135,6 @@ class RefreshiBloc extends HydratedBloc<RefreshiEvent, RefreshiState> {
   }
 
   final RefreshiUseCases _useCase;
-
-  String? _polledOrderId;
-
-  static const pollInterval = Duration(seconds: 1);
 
   static String _newKey() => const Uuid().v4();
 

@@ -18,20 +18,43 @@ See [SOLUTION.md](SOLUTION.md) for design decisions and trade-offs.
 
 ## Run
 
-```bash
-flutter pub get
-dart run build_runner build      # GraphQL types, freezed, json, injectable
-flutter run -d chrome            # web (primary target)
+Setup is one command. Melos is a dev dependency, so nothing to install
+globally:
 
-# iOS / Android: the native folders aren't committed, so generate them once
-flutter create --platforms=ios,android .
-flutter run
+```bash
+dart run melos run setup   # deps, generated code, ios/android folders
+flutter run -d chrome      # web (primary target)
+flutter run                # iOS / Android
 ```
 
+Other scripts (`dart run melos run <name>`):
+
+| Script | What it does |
+| --- | --- |
+| `setup` | `get` + `build` + `platforms` |
+| `build` / `auto-build` | generate code once / on save |
+| `analyze` | analyze the app and tests |
+| `test` | run all tests |
+| `web` | run in Chrome |
+| `clean` | remove build output and generated code |
+
 Generated files (`*.graphql.dart`, `*.freezed.dart`, `*.g.dart`,
-`injection.config.dart`) are not committed, so run `build_runner` once after
-cloning. Run it again after you change a `.graphql` file, a bloc event or
-state, or an `@injectable` class.
+`injection.config.dart`) and the `ios/` and `android/` folders aren't
+committed, which is why `setup` creates them. Run `build` again after you
+change a `.graphql` file, a bloc event or state, or an `@injectable` class.
+
+<details>
+<summary>Without melos</summary>
+
+```bash
+flutter pub get
+dart run build_runner build
+flutter create --platforms=ios,android --empty .
+```
+
+`--empty` stops `flutter create` from adding Flutter's default counter test.
+
+</details>
 
 **Demo sign-in:** `admin` / `admin` (pre-filled).
 
@@ -55,8 +78,9 @@ flutter test
 
 - `test/presentation/refreshi_bloc_test.dart` tests double-click and refresh
   mid-submit. The result must be exactly one order.
-- `test/widget_test.dart` tests a signed-out deep link: it goes to sign-in and
-  then back to the original link.
+- `test/presentation/refreshi_order_bloc_test.dart` checks an order starts
+  pending and flips to placed once the hold confirms (takes about 3 seconds),
+  and that an unknown ID returns `OrderNotFoundException`.
 - `test/domain/refreshi_repo_test.dart` runs create and fetch through the typed
   GraphQL client.
 
