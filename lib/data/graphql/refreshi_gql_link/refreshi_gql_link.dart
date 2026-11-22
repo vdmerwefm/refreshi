@@ -11,7 +11,7 @@ class RefreshiGqlLink extends Link {
 
   @override
   Stream<Response> request(Request request, [NextLink? forward]) async* {
-    // Simulated network latency (was not awaited before, so it had no effect).
+    //fake network latency
     await Future<void>.delayed(const Duration(milliseconds: 300));
     try {
       switch (request.operation.operationName) {

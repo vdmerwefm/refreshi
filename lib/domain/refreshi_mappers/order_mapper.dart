@@ -7,25 +7,31 @@ class OrderMapper {
     return RefreshiOrderDto(
       id: rawOrder.id,
       idempotencyKey: rawOrder.idempotencyKey,
-      scheduledTime: DateTime.tryParse(rawOrder.scheduledTime) ?? DateTime.now(),
+      scheduledTime:
+          DateTime.tryParse(rawOrder.scheduledTime) ?? DateTime.now(),
       totalPrice: rawOrder.totalPrice,
       status: rawOrder.status.name,
       createdAt: DateTime.tryParse(rawOrder.createdAt) ?? DateTime.now(),
       holdConfirmedAt: DateTime.tryParse(rawOrder.holdConfirmedAt),
-      services: ServicesMapper.orderServicesToServicesDto(rawOrder.services!)
+      services: ServicesMapper.orderServicesToServicesDto(rawOrder.services!),
     );
   }
 
-  static RefreshiOrderDto createOrderToOrderDto(Mutation$CreateOrder$createOrder rawOrder) {
+  static RefreshiOrderDto createOrderToOrderDto(
+    Mutation$CreateOrder$createOrder rawOrder,
+  ) {
     return RefreshiOrderDto(
       id: rawOrder.id,
       idempotencyKey: rawOrder.idempotencyKey,
-      scheduledTime: DateTime.tryParse(rawOrder.scheduledTime) ?? DateTime.now(),
+      scheduledTime:
+          DateTime.tryParse(rawOrder.scheduledTime) ?? DateTime.now(),
       totalPrice: rawOrder.totalPrice,
       status: rawOrder.status.name,
       createdAt: DateTime.tryParse(rawOrder.createdAt) ?? DateTime.now(),
       holdConfirmedAt: DateTime.tryParse(rawOrder.holdConfirmedAt),
-      services: ServicesMapper.createOrderServicesToServicesDto(rawOrder.services!)
+      services: ServicesMapper.createOrderServicesToServicesDto(
+        rawOrder.services!,
+      ),
     );
   }
 }

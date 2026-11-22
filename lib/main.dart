@@ -8,7 +8,7 @@ import 'package:refreshi/di/injection.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Clean URLs on web (/orders/123 instead of /#/orders/123). No-op on mobile.
+  //drops the # from web urls, does nothing on mobile
   usePathUrlStrategy();
   HydratedBloc.storage = await HydratedStorage.build(
     storageDirectory: kIsWeb

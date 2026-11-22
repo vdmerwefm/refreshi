@@ -67,7 +67,6 @@ class RefreshiLocalStorage {
 
   List<Query$GetServices$services> getServices() => _getServicesList;
 
-  /// How long the simulated payment provider takes to confirm the hold.
   static const holdConfirmationDelay = Duration(seconds: 3);
 
   Query$GetOrder$order? getOrderById(String id) {
@@ -76,9 +75,7 @@ class RefreshiLocalStorage {
     return _settleHoldIfDue(order);
   }
 
-  /// The in-memory timer in [createOrder] is lost if the browser refreshes
-  /// before it fires. Deriving the confirmation from `createdAt` on read means
-  /// the hold still confirms after a refresh / deep link, and is idempotent.
+  //the timer in createOrder dies on refresh, so settle the hold from createdAt on read
   Query$GetOrder$order _settleHoldIfDue(Query$GetOrder$order order) {
     if (order.status != Enum$OrderStatus.CAPTURED) return order;
     final createdAt = DateTime.tryParse(order.createdAt);
@@ -98,15 +95,12 @@ class RefreshiLocalStorage {
   Future<Query$GetOrder$order> createOrder(Input$CreateOrderInput input) async {
     final _existingId = _orderIdByIdempotencyKey[input.idempotencyKey];
 
-    // Idempotency: a retried request (double click, refresh mid-submit)
-    // returns the original order instead of placing a second hold.
-    // NOTE: no `await` may happen between this check and the insert below,
-    // otherwise two concurrent requests with the same key could both pass.
+    //same key returns the existing order, no await between here and the insert or two requests can both get through
     if (_existingId != null && _ordersById.containsKey(_existingId)) {
       return _settleHoldIfDue(_ordersById[_existingId]!);
     }
 
-    // Brief: customer selects one or two services.
+    //brief says one or two services
     if (input.serviceIds == null ||
         input.serviceIds!.isEmpty ||
         input.serviceIds!.length > 2) {

@@ -13,13 +13,11 @@ abstract final class RefreshiRoutes {
   static const signIn = '/sign-in';
   static String order(String id) => '/orders/${Uri.encodeComponent(id)}';
 
-  /// Sign-in that returns the user to [from] afterwards.
   static String signInFrom(String from) =>
       Uri(path: signIn, queryParameters: {'from': from}).toString();
 }
 
-/// Declarative, URL-driven routing. The URL is the source of truth, so deep
-/// links and browser refresh rebuild the same screen from the path alone.
+//url is the source of truth so deep links and refresh rebuild the same screen
 class AppRouter {
   AppRouter(this._authBloc);
 
@@ -50,18 +48,17 @@ class AppRouter {
   String? _redirect(BuildContext context, GoRouterState state) {
     final signedIn = _authBloc.state.isLoggedIn;
     final onSignIn = state.matchedLocation == RefreshiRoutes.signIn;
-    // Checkout is public; order routes require sign-in.
+    //checkout is public, only order routes need sign in
     final onOrderRoute = state.matchedLocation.startsWith('/orders/');
 
     if (!signedIn && onOrderRoute) {
-      // Remember where the user was going *in the URL* (not in memory), so the
-      // return trip still works if the sign-in page itself is refreshed.
+      //keep the return path in the url so it survives a refresh on sign in
       return RefreshiRoutes.signInFrom(state.uri.toString());
     }
 
     if (signedIn && onSignIn) {
       final from = state.uri.queryParameters['from'];
-      // Only allow in-app paths (avoid open redirects like //evil.com).
+      //only allow in app paths, stops open redirects
       final safe =
           from != null && from.startsWith('/') && !from.startsWith('//');
       return safe ? from : RefreshiRoutes.checkout;

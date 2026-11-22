@@ -7,9 +7,13 @@ sealed class RefreshiState with _$RefreshiState {
     @Default(false) bool isLoading,
     List<RefreshiServiceDto>? refreshiServices,
     List<String>? selectedServices,
+    //display only, the order uses the total the data source calculates
+    @Default(0) double orderTotal,
     RefreshiOrderDto? refreshiOrder,
     @Default(false) isEnabled,
     String? status,
+    //scheduledTime is always one of these or null
+    @Default(<DateTime>[]) List<DateTime> scheduleSlots,
     String? scheduledTime,
     String? idempotencyKey,
     String? createdOrderId,
