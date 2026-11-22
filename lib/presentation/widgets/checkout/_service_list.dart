@@ -11,13 +11,8 @@ class _ServiceList extends StatelessWidget {
           previous.selectedServices != current.selectedServices ||
           previous.failure != current.failure,
       builder: (context, state) {
-        final services = state.refreshiServices;
-        if (services == null) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
+        //the page only builds this once services are loaded
+        final services = state.refreshiServices ?? const [];
 
         final selected = state.selectedServices ?? const <String>[];
         final limitReached = selected.length >= refreshiMaxServices;

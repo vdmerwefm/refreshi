@@ -7,25 +7,8 @@
         {
             "name": "refreshi",
             "request": "launch",
-            "type": "dart"
-        },
-        {
-            "name": "refreshi (profile mode)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "profile"
-        },
-        {
-            "name": "refreshi (release mode)",
-            "request": "launch",
             "type": "dart",
             "flutterMode": "release"
         },
-        {
-      "name": "Refreshi",
-      "request": "launch",
-      "type": "dart",
-      "program": "lib/main.dart",
-    },
     ]
 }
